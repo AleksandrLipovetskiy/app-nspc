@@ -2,7 +2,7 @@
 
 Простое веб-приложение на HTML/CSS/JavaScript для развертывания в Kubernetes и Yandex.Cloud
 
-## Структура
+## Структура  
 
 ```
 index.html          # Главная страница (HTML)
