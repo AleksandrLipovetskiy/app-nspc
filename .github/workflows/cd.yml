@@ -26,8 +26,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Важно: получаем именно тот коммит что собирал CI
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-tags: true   # fix: теги не скачивались — git tag --points-at всегда возвращал пусто
+          fetch-depth: 0     # fix: нужна полная история для корректной работы тегов
 
       - name: Determine version tag
         id: tag
@@ -35,42 +36,47 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.tag }}"
           else
-            # Ищем тег v* указывающий на SHA коммита из CI
             VERSION=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" \
               | grep '^v' | head -n1)
           fi
 
           if [[ -z "$VERSION" ]]; then
             echo "No version tag found for this commit, skipping deploy."
-            exit 0  # мягкий выход без ошибки — это просто push на ветку, не тег
+            echo "skip=true" >> $GITHUB_OUTPUT   # fix: выставляем флаг чтобы остановить шаги
+            exit 0
           fi
 
           REGISTRY_ID="${{ secrets.REGISTRY_ID }}"
           IMAGE="${{ env.REGISTRY_URL }}/${REGISTRY_ID}/${{ env.IMAGE_NAME }}:${VERSION}"
+          echo "skip=false" >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "Deploying image: ${IMAGE}"
 
       - name: Setup kubectl
+        if: steps.tag.outputs.skip != 'true'   # fix: пропускаем если нет тега
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Install Yandex Cloud CLI
+        if: steps.tag.outputs.skip != 'true'
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
       - name: Configure Yandex Cloud and get kubeconfig
+        if: steps.tag.outputs.skip != 'true'
         run: |
           echo '${{ secrets.YC_SERVICE_ACCOUNT_KEY }}' > /tmp/sa-key.json
           $HOME/yandex-cloud/bin/yc config set service-account-key /tmp/sa-key.json
           $HOME/yandex-cloud/bin/yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
           $HOME/yandex-cloud/bin/yc config set folder-id "${{ secrets.YC_FOLDER_ID }}"
           $HOME/yandex-cloud/bin/yc managed-kubernetes cluster get-credentials \
-            app-nspc-cluster --external --force
+            app-nspc-cluster --external --force   # fix: убран несуществующий --region
 
       - name: Create or update docker-registry secret
+        if: steps.tag.outputs.skip != 'true'
         run: |
           IAM_TOKEN=$($HOME/yandex-cloud/bin/yc iam create-token)
           kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
@@ -82,6 +88,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy via Kubernetes manifests
+        if: steps.tag.outputs.skip != 'true'
         run: |
           VERSION="${{ steps.tag.outputs.version }}"
           IMAGE="${{ steps.tag.outputs.image }}"
@@ -96,11 +103,13 @@ jobs:
           kubectl apply -f k8s/service.yaml
 
       - name: Wait for rollout
+        if: steps.tag.outputs.skip != 'true'
         run: |
           kubectl rollout status deployment/app-nspc \
             -n ${{ env.NAMESPACE }} --timeout=5m
 
       - name: Wait for LoadBalancer IP
+        if: steps.tag.outputs.skip != 'true'
         run: |
           echo "Waiting for External IP..."
           for i in $(seq 1 18); do
@@ -116,6 +125,7 @@ jobs:
           done
 
       - name: Deployment summary
+        if: steps.tag.outputs.skip != 'true'
         run: |
           echo "### Deployment complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
