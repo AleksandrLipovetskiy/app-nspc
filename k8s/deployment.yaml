@@ -17,6 +17,8 @@ spec:
         app: app-nspc
         version: v1
     spec:
+            imagePullSecrets:
+                    - name: ycr-secret
       containers:
       - name: app-nspc
         image: cr.yandex/b1g0m0akubo6l695q6df/app-nspc:latest
