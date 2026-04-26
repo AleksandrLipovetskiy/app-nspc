@@ -30,8 +30,8 @@ jobs:
           else
             VERSION="${{ github.event.inputs.tag }}"
           fi
-          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
-          IMAGE="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${{ env.IMAGE_NAME }}:${VERSION}"
+          REGISTRY_ID="${{ secrets.REGISTRY_ID }}"
+          IMAGE="${{ env.REGISTRY_URL }}/${REGISTRY_ID}/${{ env.IMAGE_NAME }}:${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "Deploying image: ${IMAGE}"
