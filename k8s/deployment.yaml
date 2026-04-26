@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-nspc
+  namespace: app-nspc
+  labels:
+    app: app-nspc
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-nspc
+  template:
+    metadata:
+      labels:
+        app: app-nspc
+        version: v1
+    spec:
+      containers:
+      - name: app-nspc
+        image: cr.yandex/$(YC_FOLDER_ID)/app-nspc:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5

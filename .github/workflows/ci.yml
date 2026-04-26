@@ -1,0 +1,61 @@
+name: CI - Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'Dockerfile'
+      - 'index.html'
+      - 'style.css'
+      - 'logik.js'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY_URL: cr.yandex
+  IMAGE_NAME: app-nspc
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Yandex Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: json_key
+          password: ${{ secrets.YC_REGISTRY_PASSWORD }}
+
+      - name: Get folder ID and tag
+        id: meta
+        run: |
+          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
+          TAG="${{ github.sha }}"
+          SHORT_TAG="${TAG:0:7}"
+          IMAGE_TAG="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${IMAGE_NAME}:${SHORT_TAG}"
+          IMAGE_LATEST="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${IMAGE_NAME}:latest"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "image_latest=${IMAGE_LATEST}" >> $GITHUB_OUTPUT
+          echo "short_tag=${SHORT_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Output image digest
+        run: echo "Image pushed to ${{ steps.meta.outputs.image_tag }}"

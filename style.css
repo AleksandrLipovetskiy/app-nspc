@@ -1,0 +1,95 @@
+      
+        body {
+            box-sizing: border-box;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    
+        .dictionary {
+            width: 600px;
+            border: solid 2px #555;
+            border-radius: 10px;
+            background-color: #ce5e5e;
+            padding: 20px;
+    
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-auto-rows: 80px;
+            gap: 20px;
+        }
+    
+        .coment {
+            grid-column: 1 / -1;
+            background-color: #ce5e5e;
+            color: #fff;
+            font-size: 12px;
+            
+        }
+
+        .dictionary_input {
+            grid-column: 1 / -1;
+            background-color: #fff;
+            color: #333;
+            font-size: 56px;
+            padding: 10px;
+        }
+
+        .dictionaryResult {
+            width: 700px;
+            border: solid 2px #555;
+            border-radius: 10px;
+            background-color: #ce5e5e;
+            padding: 20px;
+    
+            display: grid;
+            grid-auto-rows: 850px;
+            gap: 20px;
+        }
+    
+        .dictionary_result {
+            grid-column: 1 / -1;
+            background-color: #fff;
+            color: #333;
+            font-size: 28px;
+            overflow: auto;
+            text-align: justify;
+            padding: 10px;
+        }
+    
+        .dictionary_btn {
+            border: none;
+            border-radius: 5px;
+            background-color: #eee;
+            cursor: pointer;
+    
+            font-size: 30px;
+            box-shadow: 2px 3px 2px rgb(0, 0, 0, 0.5);
+        }
+    
+        .dictionary_btn:hover {
+            opacity: 0.9;
+        }
+    
+        .dictionary_btn:active {
+            box-shadow: 1px 1px 2px rgb(0, 0, 0, 0.5);
+        }
+    
+            
+        .dictionary_btn_reset {
+            background-color: #51afbb;
+            color: #fff;
+        }
+
+        .dictionary_btn_paySistem {
+            background-color: #e5e775;
+            color: #333;
+        }
+    
+        .dictionary_btn_equal {
+            background-color: #51afbb;
+            color: #fff;
+            grid-column: 1 / -4;
+        }

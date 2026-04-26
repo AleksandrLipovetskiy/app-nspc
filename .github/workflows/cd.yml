@@ -1,0 +1,75 @@
+name: CD - Deploy to Kubernetes on Release Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy (e.g., v1.0.0)'
+        required: true
+
+env:
+  REGISTRY_URL: cr.yandex
+  IMAGE_NAME: app-nspc
+  NAMESPACE: app-nspc
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl with kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Get image tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG=$(echo "${{ github.ref }}" | sed 's#refs/tags/##')
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
+          IMAGE_TAG="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${IMAGE_NAME}:${TAG}"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "version=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy application
+        run: |
+          kubectl set image deployment/app-nspc app-nspc=${{ steps.tag.outputs.image_tag }} \
+            -n ${{ env.NAMESPACE }} || \
+          kubectl create deployment app-nspc \
+            --image=${{ steps.tag.outputs.image_tag }} \
+            -n ${{ env.NAMESPACE }}
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/app-nspc -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Create Service if not exists
+        run: |
+          kubectl get service app-nspc -n ${{ env.NAMESPACE }} || \
+          kubectl expose deployment app-nspc --port=80 --target-port=80 --type=LoadBalancer \
+            -n ${{ env.NAMESPACE }}
+
+      - name: Get deployment status
+        run: |
+          kubectl get deployment -n ${{ env.NAMESPACE }}
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          kubectl get service -n ${{ env.NAMESPACE }}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="vievport" content="width=device-width, initial-scale=1.0">
+    <title>Справочник ПС</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    
+    <article class="dictionary">
+        <div class="coment"> MIR  - на базе ПВУ 23.1.1<br>MC   - на базе ???<br>VISA - на базе ????<br>
+        </div>
+        <!--Окно ввода-->
+        <output class="dictionary_input" id="input"></output>
+    
+        <button type="button" class="dictionary_btn dictionary_btn_reset">ESC</button>
+        <button type="button" class="dictionary_btn">7</button>
+        <button type="button" class="dictionary_btn">8</button>
+        <button type="button" class="dictionary_btn">9</button>
+        
+        <button type="button" class="dictionary_btn">FAQ</button>
+        <button type="button" class="dictionary_btn">4</button>
+        <button type="button" class="dictionary_btn">5</button>
+        <button type="button" class="dictionary_btn">6</button>
+
+        <button type="button" class="dictionary_btn"></button>           
+        <button type="button" class="dictionary_btn">1</button>
+        <button type="button" class="dictionary_btn">2</button>
+        <button type="button" class="dictionary_btn">3</button>
+
+        <button type="button" class="dictionary_btn dictionary_btn_paySistem">MTI</button>
+        <button type="button" class="dictionary_btn">*</button>
+        <button type="button" class="dictionary_btn">^</button>
+        <button type="button" class="dictionary_btn">0</button>
+            
+        <button type="button" class="dictionary_btn dictionary_btn_paySistem"></button>
+        <button type="button" class="dictionary_btn dictionary_btn_paySistem"></button>
+        <button type="button" class="dictionary_btn dictionary_btn_paySistem"></button>
+        <button type="button" class="dictionary_btn dictionary_btn_paySistem">MIR</button>
+
+    </article>
+
+    <article class="dictionaryResult">
+        <!--Окно расшифровки-->
+        <output class="dictionary_result" id="result"></output>
+    </article>
+    
+    </body>
+    
+    <script src="logik.js"></script>
+    
+    </html>
