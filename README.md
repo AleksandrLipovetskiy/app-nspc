@@ -101,7 +101,7 @@ kubectl port-forward -n app-nspc svc/app-nspc 8080:80
 
 **Действия:**
 1. Checkout code
-2. Get kubeconfig из secrets
+2. Получить kubeconfig через Yandex Cloud CLI и IAM-токен
 3. Deploy: создание или обновление Deployment
 4. Rollout status check
 5. Создание Service (если не существует)
@@ -113,21 +113,20 @@ kubectl port-forward -n app-nspc svc/app-nspc 8080:80
 
 ```
 YC_FOLDER_ID          # ID папки в Yandex.Cloud
-YC_REGISTRY_PASSWORD  # json_key для docker login (base64)
-KUBECONFIG            # ~/.kube/config (base64)
+YC_CLOUD_ID           # ID облака в Yandex.Cloud
+YC_IAM_TOKEN          # IAM-токен для доступа в Yandex Cloud и реестр
+SSH_PUBLIC_KEY        # публичный SSH-ключ (если используется в инфраструктурном репозитории)
 ```
 
 Пример подготовки:
 
 ```bash
-# Registry password
-cat key.json | base64 -w 0 > /tmp/registry_pwd
-# Скопируй содержимое в GitHub Secret
-
-# Kubeconfig
-cat ~/.kube/config | base64 -w 0 > /tmp/kubeconfig_b64
-# Скопируй содержимое в GitHub Secret
+# IAM token
+yc iam create-token --service-account-id <SERVICE_ACCOUNT_ID>
+# Скопируй значение токена в GitHub Secret YC_IAM_TOKEN
 ```
+
+> Для app-nspc workflow больше не требуется сохранять `KUBECONFIG` как секрет: GitHub Actions генерирует его на лету через `yc managed-kubernetes cluster get-credentials`.
 
 ## Развертывание
 

@@ -31,8 +31,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY_URL }}
-          username: json_key
-          password: ${{ secrets.YC_REGISTRY_PASSWORD }}
+          username: iam
+          password: ${{ secrets.YC_IAM_TOKEN }}
 
       - name: Get folder ID and tag
         id: meta
