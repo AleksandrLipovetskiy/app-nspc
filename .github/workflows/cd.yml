@@ -68,7 +68,7 @@ jobs:
           $HOME/yandex-cloud/bin/yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
           $HOME/yandex-cloud/bin/yc config set folder-id "${{ secrets.YC_FOLDER_ID }}"
           $HOME/yandex-cloud/bin/yc managed-kubernetes cluster get-credentials \
-            app-nspc-cluster --region ru-central1 --external --force
+            app-nspc-cluster --external --force
 
       - name: Create or update docker-registry secret
         run: |
