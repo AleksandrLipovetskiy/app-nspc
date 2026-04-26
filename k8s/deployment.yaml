@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: app-nspc
-        image: cr.yandex/<folder-id>/app-nspc:latest
+        image: cr.yandex/b1g0m0akubo6l695q6df/app-nspc:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

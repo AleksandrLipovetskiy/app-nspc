@@ -22,6 +22,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Determine version tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="${{ github.event.inputs.tag }}"
+          fi
+          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
+          IMAGE="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${{ env.IMAGE_NAME }}:${VERSION}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "Deploying image: ${IMAGE}"
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
@@ -30,58 +44,73 @@ jobs:
       - name: Install Yandex Cloud CLI
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          echo "$HOME/.yandex-cloud/bin" >> $GITHUB_PATH
+          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
-      - name: Configure Yandex Cloud CLI
-        env:
-          YC_TOKEN: ${{ secrets.YC_IAM_TOKEN }}
+      - name: Configure Yandex Cloud and get kubeconfig
         run: |
-          yc config set token "${{ secrets.YC_IAM_TOKEN }}"
-          yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
-          yc config set folder-id "${{ secrets.YC_FOLDER_ID }}"
-          yc config set output json
+          # Используем ключ сервисного аккаунта — не протухает
+          echo '${{ secrets.YC_SERVICE_ACCOUNT_KEY }}' > /tmp/sa-key.json
+          $HOME/yandex-cloud/bin/yc config set service-account-key /tmp/sa-key.json
+          $HOME/yandex-cloud/bin/yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
+          $HOME/yandex-cloud/bin/yc config set folder-id "${{ secrets.YC_FOLDER_ID }}"
+          $HOME/yandex-cloud/bin/yc managed-kubernetes cluster get-credentials \
+            app-nspc-cluster --region ru-central1 --external --force
 
-      - name: Get kubeconfig for cluster
+      - name: Create or update docker-registry secret
         run: |
-          yc managed-kubernetes cluster get-credentials app-nspc-cluster --region ru-central1 --external --force
-
-      - name: Get image tag
-        id: tag
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            TAG=$(echo "${{ github.ref }}" | sed 's#refs/tags/##')
-          else
-            TAG="${{ github.event.inputs.tag }}"
-          fi
-          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
-          IMAGE_TAG="${{ env.REGISTRY_URL }}/${FOLDER_ID}/${IMAGE_NAME}:${TAG}"
-          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
-          echo "version=${TAG}" >> $GITHUB_OUTPUT
-
-      - name: Create namespace if not exists
-        run: |
+          # Получаем свежий IAM-токен через сервисный аккаунт (для pull образов)
+          IAM_TOKEN=$($HOME/yandex-cloud/bin/yc iam create-token)
           kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret docker-registry regcred \
+            --docker-server=cr.yandex \
+            --docker-username=iam \
+            --docker-password="${IAM_TOKEN}" \
+            --namespace=${{ env.NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Deploy application
+      - name: Deploy via Kubernetes manifests
         run: |
-          kubectl set image deployment/app-nspc app-nspc=${{ steps.tag.outputs.image_tag }} \
-            -n ${{ env.NAMESPACE }} || \
-          kubectl create deployment app-nspc \
-            --image=${{ steps.tag.outputs.image_tag }} \
-            -n ${{ env.NAMESPACE }}
+          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+          IMAGE="${{ steps.tag.outputs.image }}"
 
-      - name: Wait for deployment
-        run: |
-          kubectl rollout status deployment/app-nspc -n ${{ env.NAMESPACE }} --timeout=5m
+          # Подставляем реальный folder_id и тег версии в манифест
+          sed \
+            -e "s|cr.yandex/<folder-id>/app-nspc:latest|${IMAGE}|g" \
+            -e "s|version: v1|version: ${VERSION}|g" \
+            k8s/deployment.yaml | kubectl apply -f -
 
-      - name: Create Service if not exists
-        run: |
-          kubectl get service app-nspc -n ${{ env.NAMESPACE }} || \
-          kubectl expose deployment app-nspc --port=80 --target-port=80 --type=LoadBalancer \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/service.yaml
 
-      - name: Get deployment status
+          # Убеждаемся, что imagePullSecrets прописан
+          kubectl patch deployment app-nspc -n ${{ env.NAMESPACE }} \
+            --type='json' \
+            -p='[{"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"regcred"}]}]' \
+            2>/dev/null || true
+
+      - name: Wait for rollout
         run: |
-          kubectl get deployment -n ${{ env.NAMESPACE }}
-          kubectl get pods -n ${{ env.NAMESPACE }}
-          kubectl get service -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/app-nspc \
+            -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Deployment summary
+        run: |
+          echo "### 🚀 Deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.tag.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pods:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n ${{ env.NAMESPACE }} >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service (LoadBalancer IP):**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get svc app-nspc -n ${{ env.NAMESPACE }} >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/sa-key.json
