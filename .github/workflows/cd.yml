@@ -48,7 +48,6 @@ jobs:
 
       - name: Configure Yandex Cloud and get kubeconfig
         run: |
-          # Используем ключ сервисного аккаунта — не протухает
           echo '${{ secrets.YC_SERVICE_ACCOUNT_KEY }}' > /tmp/sa-key.json
           $HOME/yandex-cloud/bin/yc config set service-account-key /tmp/sa-key.json
           $HOME/yandex-cloud/bin/yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
@@ -58,10 +57,9 @@ jobs:
 
       - name: Create or update docker-registry secret
         run: |
-          # Получаем свежий IAM-токен через сервисный аккаунт (для pull образов)
           IAM_TOKEN=$($HOME/yandex-cloud/bin/yc iam create-token)
           kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret docker-registry regcred \
+          kubectl create secret docker-registry ycr-secret \
             --docker-server=cr.yandex \
             --docker-username=iam \
             --docker-password="${IAM_TOKEN}" \
@@ -70,36 +68,45 @@ jobs:
 
       - name: Deploy via Kubernetes manifests
         run: |
-          FOLDER_ID="${{ secrets.YC_FOLDER_ID }}"
           VERSION="${{ steps.tag.outputs.version }}"
           IMAGE="${{ steps.tag.outputs.image }}"
 
-          # Подставляем реальный folder_id и тег версии в манифест
+          kubectl apply -f k8s/namespace.yaml
+
           sed \
-            -e "s|cr.yandex/<folder-id>/app-nspc:latest|${IMAGE}|g" \
-            -e "s|version: v1|version: ${VERSION}|g" \
+            -e "s|image: cr\.yandex/[^/]*/app-nspc:[^ ]*|image: ${IMAGE}|g" \
+            -e "s|version: v[0-9.]*|version: ${VERSION}|g" \
             k8s/deployment.yaml | kubectl apply -f -
 
-          kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/service.yaml
 
-          # Убеждаемся, что imagePullSecrets прописан
-          kubectl patch deployment app-nspc -n ${{ env.NAMESPACE }} \
-            --type='json' \
-            -p='[{"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"regcred"}]}]' \
-            2>/dev/null || true
-
-      - name: Wait for rollout
+      - name: Wait for rollout        # ← теперь на правильном уровне отступа
         run: |
           kubectl rollout status deployment/app-nspc \
             -n ${{ env.NAMESPACE }} --timeout=5m
 
+      - name: Wait for LoadBalancer IP
+        run: |
+          echo "Waiting for External IP..."
+          for i in $(seq 1 18); do
+            IP=$(kubectl get svc app-nspc -n ${{ env.NAMESPACE }} \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [[ -n "$IP" ]]; then
+              echo "External IP: $IP"
+              echo "lb_ip=${IP}" >> $GITHUB_ENV
+              break
+            fi
+            echo "Attempt $i/18: not yet assigned, waiting 10s..."
+            sleep 10
+          done
+
       - name: Deployment summary
         run: |
-          echo "### 🚀 Deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ steps.tag.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**External IP:** \`${{ env.lb_ip }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Pods:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
