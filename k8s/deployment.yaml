@@ -17,7 +17,10 @@ spec:
         app: app-nspc
         version: v1
     spec:
+      imagePullSecrets:
+        - name: ycr-secret
       containers:
+<<<<<<< HEAD
       - name: app-nspc
         image: cr.yandex/crpcnd0u0dpbtd02nogf/app-nspc:latest
         imagePullPolicy: Always
@@ -43,3 +46,30 @@ spec:
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 5
+=======
+        - name: app-nspc
+          image: cr.yandex/b1g0m0akubo6l695q6df/app-nspc:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+>>>>>>> 3f6c2162cef40171da656ecccf530bc1a4f85313
