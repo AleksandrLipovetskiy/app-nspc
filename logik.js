@@ -293,7 +293,7 @@ dictionary.addEventListener('click', function(event) {
     if(!event.target.classList.contains('dictionary_btn')) return;
 
     const value = event.target.innerText;
-      
+    
 
     switch(value) {
         
