@@ -67,6 +67,8 @@ spec:
               mountPath: /var/run
             - name: nginx-tmp
               mountPath: /tmp
+            - name: nginx-log
+              mountPath: /var/log/nginx
 
           livenessProbe:
             httpGet:
@@ -87,4 +89,6 @@ spec:
         - name: nginx-run
           emptyDir: {}
         - name: nginx-tmp
+          emptyDir: {}
+        - name: nginx-log
           emptyDir: {}
