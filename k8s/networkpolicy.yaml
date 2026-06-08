@@ -1,0 +1,50 @@
+# Default deny all ingress and egress for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: app-nspc
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Разрешаем входящий HTTP трафик к приложению от LoadBalancer
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-http
+  namespace: app-nspc
+spec:
+  podSelector:
+    matchLabels:
+      app: app-nspc
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+# Разрешаем DNS и выход для pull образов (containerd тянет с cr.yandex)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-dns-and-registry
+  namespace: app-nspc
+spec:
+  podSelector:
+    matchLabels:
+      app: app-nspc
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 443

@@ -72,8 +72,10 @@ jobs:
           $HOME/yandex-cloud/bin/yc config set service-account-key /tmp/sa-key.json
           $HOME/yandex-cloud/bin/yc config set cloud-id "${{ secrets.YC_CLOUD_ID }}"
           $HOME/yandex-cloud/bin/yc config set folder-id "${{ secrets.YC_FOLDER_ID }}"
+          # --external: GitHub Actions подключается напрямую к public IP мастера
+          # доступ разрешён через security group k8s-master-sg по CIDR GitHub Actions
           $HOME/yandex-cloud/bin/yc managed-kubernetes cluster get-credentials \
-            app-nspc-cluster --external --force   # fix: убран несуществующий --region
+            app-nspc-cluster --external --force
 
       - name: Create or update docker-registry secret
         if: steps.tag.outputs.skip != 'true'
@@ -94,6 +96,9 @@ jobs:
           IMAGE="${{ steps.tag.outputs.image }}"
 
           kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/serviceaccount.yaml
+          kubectl apply -f k8s/rbac.yaml
+          kubectl apply -f k8s/networkpolicy.yaml
 
           sed \
             -e "s|image: cr\.yandex/[^/]*/app-nspc:[^ ]*|image: ${IMAGE}|g" \

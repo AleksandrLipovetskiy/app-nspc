@@ -1,0 +1,30 @@
+# Минимальные права для CI/CD ServiceAccount (используется из GitHub Actions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-nspc-deployer
+  namespace: app-nspc
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services", "namespaces", "secrets", "pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "apply"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-nspc-deployer-binding
+  namespace: app-nspc
+subjects:
+  - kind: ServiceAccount
+    name: app-nspc-sa
+    namespace: app-nspc
+roleRef:
+  kind: Role
+  name: app-nspc-deployer
+  apiGroup: rbac.authorization.k8s.io

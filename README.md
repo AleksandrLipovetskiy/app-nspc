@@ -172,7 +172,7 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ### Образ не собирается
 
 ```bash
-# Проверь GitHub Actions логи
+# Проверить GitHub Actions логи
 # GitHub → Actions → последний run → Build and push Docker image
 
 # Локально проверь Dockerfile
@@ -210,13 +210,9 @@ kubectl create secret docker-registry regcred \
 ### Доступ к LoadBalancer
 
 ```bash
-# Дожидайся, пока IP появится (может быть 1-2 минуты)
+# Дождаться, пока IP появится (может быть 1-2 минуты)
 kubectl get svc app-nspc -n app-nspc --watch
 
 # Или
 kubectl get svc app-nspc -n app-nspc -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
-
----
-
-**Успеха! 🎯**
