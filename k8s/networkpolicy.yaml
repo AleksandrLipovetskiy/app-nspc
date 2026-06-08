@@ -25,7 +25,7 @@ spec:
   ingress:
     - ports:
         - protocol: TCP
-          port: 80
+          port: 8080
 ---
 # Разрешаем DNS и выход для pull образов (containerd тянет с cr.yandex)
 apiVersion: networking.k8s.io/v1
