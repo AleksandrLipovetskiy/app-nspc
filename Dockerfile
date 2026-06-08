@@ -15,6 +15,6 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 
 USER nginx  # ← запускаем не от root
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
